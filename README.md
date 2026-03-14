@@ -564,7 +564,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## 📬 Contact
 
-**Anand Sundar** - [GitHub](https://github.com/AnandSundar) - [LinkedIn](https://linkedin.com/in/anandsundar)
+**Anand Sundar** - [GitHub](https://github.com/AnandSundar) - [LinkedIn](https://linkedin.com/in/anandsundar96)
 
 ---
 
