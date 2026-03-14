@@ -19,6 +19,7 @@ export interface AgentStep {
     output?: string;
     toolCalls: ToolCall[];
     reasoning?: string;
+    error?: string;
 }
 
 export interface ToolCall {
