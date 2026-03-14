@@ -41,9 +41,6 @@
 
 <div align="center">
 
-<!-- Animated Hero Section -->
-![TaxFlow AI Demo](https://via.placeholder.com/900x500/1a1a2e/FF6B6B?text=TaxFlow+AI+Demo)
-
 *Watch AI analyze tax documents, extract financial data, and generate compliance reports in seconds*
 
 </div>
