@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # API Service
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    container_name: taxflow-api
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://taxflow:taxflow@db:5432/taxflow
+      - REDIS_URL=redis://cache:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    depends_on:
+      - db
+      - cache
+    volumes:
+      - uploads:/app/uploads
+      - ./agents:/app/agents:ro
+      - ./rag:/app/rag:ro
+    networks:
+      - taxflow-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: taxflow-db
+    environment:
+      - POSTGRES_USER=taxflow
+      - POSTGRES_PASSWORD=taxflow
+      - POSTGRES_DB=taxflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - taxflow-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U taxflow" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  cache:
+    image: redis:7-alpine
+    container_name: taxflow-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - taxflow-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  # Vector Database (optional - for production RAG)
+  # qdrant:
+  #   image: qdrant/qdrant:latest
+  #   container_name: taxflow-qdrant
+  #   ports:
+  #     - "6333:6333"
+  #   volumes:
+  #     - qdrant-data:/qdrant/storage
+  #   networks:
+  #     - taxflow-network
+
+  # Web Frontend (if separate)
+  # web:
+  #   build:
+  #     context: ./apps/web
+  #     dockerfile: Dockerfile
+  #   container_name: taxflow-web
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     - api
+  #   networks:
+  #     - taxflow-network
+
+volumes:
+  postgres-data:
+  redis-data:
+  uploads:
+
+
+networks:
+  taxflow-network:
+    driver: bridge

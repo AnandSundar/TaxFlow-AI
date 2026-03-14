@@ -1,0 +1,87 @@
+# TaxFlow AI - API Dockerfile
+# Multi-stage build for optimized image size
+
+# =============================================================================
+# Stage 1: Base Image
+# =============================================================================
+FROM node:20-alpine AS base
+
+# Install dependencies for node-gyp
+RUN apk add --no-cache python3 make g++
+
+WORKDIR /app
+
+# =============================================================================
+# Stage 2: Dependencies
+# =============================================================================
+FROM base AS deps
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# =============================================================================
+# Stage 3: Development Build
+# =============================================================================
+FROM base AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig.json ./
+
+# Install all dependencies (including dev)
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Build TypeScript
+RUN npm run build
+
+# =============================================================================
+# Stage 4: Production
+# =============================================================================
+FROM base AS production
+
+WORKDIR /app
+
+# Security: Run as non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Copy production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package*.json ./
+
+# Environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Set ownership
+RUN chown -R nodejs:nodejs /app
+
+# Switch to non-root user
+USER nodejs
+
+# Expose ports
+EXPOSE 3000 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+
+# Start the application
+CMD ["node", "dist/index.js"]
+
+# =============================================================================
+# Labels
+# =============================================================================
+LABEL maintainer="TaxFlow AI"
+LABEL version="1.0.0"
+LABEL description="TaxFlow AI - Intelligent Tax Preparation Platform"
