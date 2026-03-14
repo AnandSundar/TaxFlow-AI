@@ -21,14 +21,7 @@
   </a>
 </p>
 
-<p align="center">
-  <h1>
-    <span style="background: linear-gradient(135deg, #FF6B6B 0%, #4ECDC4 50%, #45B7D1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
-      TaxFlow AI
-    </span>
-  </h1>
-  <em>Agentic AI workflows for modern tax professionals</em>
-</p>
+
 
 ---
 
