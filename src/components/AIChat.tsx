@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { 
   Send, 
   Bot, 
@@ -10,27 +11,42 @@ import {
   Copy,
   Check,
   Trash2,
-  MessageSquare
+  MessageSquare,
+  AlertCircle,
+  RefreshCw,
+  Wrench,
+  FileText,
+  Search,
+  CheckCircle2,
+  XCircle,
+  Clock
 } from 'lucide-react';
-import type { AgentMessage, ChatSession } from '../types/agent';
+import type { AgentMessage, ChatSession, ToolCall } from '../types/agent';
 
 interface AIChatProps {
+  clientId?: number;
   session?: ChatSession;
   onSendMessage?: (message: string) => void;
   isStreaming?: boolean;
   streamingContent?: string;
+  onRetry?: (messageId: string) => void;
+  errorMessage?: string | null;
 }
 
 export default function AIChat({ 
+  clientId,
   session, 
   onSendMessage, 
   isStreaming = false, 
-  streamingContent = '' 
+  streamingContent = '',
+  onRetry,
+  errorMessage = null
 }: AIChatProps) {
   const [messages, setMessages] = useState<AgentMessage[]>(session?.messages || []);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [expandedToolCalls, setExpandedToolCalls] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -70,6 +86,49 @@ export default function AIChat({
   const handleClear = () => {
     setMessages([]);
     inputRef.current?.focus();
+  };
+
+  const handleRetry = (messageId: string) => {
+    const message = messages.find(m => m.id === messageId);
+    if (message && onRetry) {
+      onRetry(messageId);
+    }
+  };
+
+  const toggleToolCallExpand = (toolCallId: string) => {
+    setExpandedToolCalls(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(toolCallId)) {
+        newSet.delete(toolCallId);
+      } else {
+        newSet.add(toolCallId);
+      }
+      return newSet;
+    });
+  };
+
+  const getToolIcon = (toolName: string) => {
+    const lowerName = toolName.toLowerCase();
+    if (lowerName.includes('document') || lowerName.includes('file') || lowerName.includes('pdf')) {
+      return <FileText className="w-3.5 h-3.5" />;
+    }
+    if (lowerName.includes('search') || lowerName.includes('lookup') || lowerName.includes('tax')) {
+      return <Search className="w-3.5 h-3.5" />;
+    }
+    return <Wrench className="w-3.5 h-3.5" />;
+  };
+
+  const getToolStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />;
+      case 'failed':
+        return <XCircle className="w-3.5 h-3.5 text-red-500" />;
+      case 'executing':
+        return <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin" />;
+      default:
+        return <Clock className="w-3.5 h-3.5 text-slate-400" />;
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -120,6 +179,21 @@ export default function AIChat({
         </button>
       </div>
 
+      {/* Error Banner */}
+      {errorMessage && (
+        <div className="flex items-center gap-3 px-6 py-3 bg-red-50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-900/30">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+          <p className="text-sm text-red-700 dark:text-red-400 flex-1">{errorMessage}</p>
+          <button
+            onClick={() => handleRetry('error')}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-300 bg-white dark:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {displayMessages.length === 0 ? (
@@ -136,7 +210,9 @@ export default function AIChat({
             </p>
           </div>
         ) : (
-          displayMessages.map((message) => (
+          displayMessages.map((message) => {
+            const hasFailedToolCall = message.toolCalls?.some(tc => tc.status === 'failed');
+            return (
             <div
               key={message.id}
               className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
@@ -144,10 +220,14 @@ export default function AIChat({
               <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
                 message.role === 'user'
                   ? 'bg-slate-100 dark:bg-slate-800'
-                  : 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/25'
+                  : hasFailedToolCall
+                    ? 'bg-red-100 dark:bg-red-900/30'
+                    : 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/25'
               }`}>
                 {message.role === 'user' ? (
                   <User className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                ) : hasFailedToolCall ? (
+                  <AlertCircle className="w-4 h-4 text-red-500" />
                 ) : (
                   <Bot className="w-4 h-4 text-white" />
                 )}
@@ -164,31 +244,122 @@ export default function AIChat({
                     ? 'bg-indigo-600 text-white'
                     : 'bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
                 }`}>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {message.content}
-                  </p>
+                  {message.role === 'assistant' ? (
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown
+                        components={{
+                          ul: ({ children }) => <ul className="list-disc pl-4 space-y-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal pl-4 space-y-1">{children}</ol>,
+                          li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                          table: ({ children }) => <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">{children}</table></div>,
+                          thead: ({ children }) => <thead className="bg-slate-50 dark:bg-slate-800">{children}</thead>,
+                          th: ({ children }) => <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{children}</th>,
+                          td: ({ children }) => <td className="px-3 py-2 text-sm">{children}</td>,
+                          code: ({ children }) => <code className="bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-xs">{children}</code>,
+                          pre: ({ children }) => <pre className="bg-slate-200 dark:bg-slate-700 p-3 rounded-lg overflow-x-auto text-xs">{children}</pre>,
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {message.content}
+                    </p>
+                  )}
                 </div>
                 {message.role === 'assistant' && (
-                  <div className="flex items-center gap-1 mt-2">
-                    <button
-                      onClick={() => handleCopy(message.content, message.id)}
-                      className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                      title="Copy message"
-                    >
-                      {copiedId === message.id ? (
-                        <Check className="w-3.5 h-3.5" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
+                  <>
+                    {/* Tool Calls Display */}
+                    {message.toolCalls && message.toolCalls.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                          <Wrench className="w-3.5 h-3.5" />
+                          Tools Used ({message.toolCalls.length})
+                        </div>
+                        <div className="space-y-1.5">
+                          {message.toolCalls.map((toolCall) => (
+                            <div 
+                              key={toolCall.id}
+                              className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden"
+                            >
+                              <button
+                                onClick={() => toggleToolCallExpand(toolCall.id)}
+                                className="w-full flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left"
+                              >
+                                {getToolIcon(toolCall.toolName)}
+                                <span className="text-xs font-medium text-slate-700 dark:text-slate-300 flex-1">
+                                  {toolCall.toolName}
+                                </span>
+                                {getToolStatusIcon(toolCall.status)}
+                              </button>
+                              {expandedToolCalls.has(toolCall.id) && (
+                                <div className="px-3 py-2 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
+                                  {toolCall.status === 'failed' && toolCall.error && (
+                                    <div className="mb-2 p-2 rounded bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs">
+                                      <div className="font-medium flex items-center gap-1 mb-1">
+                                        <AlertCircle className="w-3 h-3" />
+                                        Error
+                                      </div>
+                                      {toolCall.error}
+                                    </div>
+                                  )}
+                                  {toolCall.arguments && Object.keys(toolCall.arguments).length > 0 && (
+                                    <div className="mb-2">
+                                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Arguments</div>
+                                      <pre className="text-xs bg-slate-100 dark:bg-slate-800 p-2 rounded overflow-x-auto">
+                                        {JSON.stringify(toolCall.arguments, null, 2)}
+                                      </pre>
+                                    </div>
+                                  )}
+                                  {toolCall.result && (
+                                    <div>
+                                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Result</div>
+                                      <pre className="text-xs bg-slate-100 dark:bg-slate-800 p-2 rounded overflow-x-auto max-h-32">
+                                        {typeof toolCall.result === 'string' 
+                                          ? toolCall.result 
+                                          : JSON.stringify(toolCall.result, null, 2)}
+                                      </pre>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1 mt-2">
+                      <button
+                        onClick={() => handleCopy(message.content, message.id)}
+                        className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        title="Copy message"
+                      >
+                        {copiedId === message.id ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                      {/* Error state with retry button */}
+                      {(message.toolCalls?.some(tc => tc.status === 'failed') || message.id === 'error') && (
+                        <button
+                          onClick={() => handleRetry(message.id)}
+                          className="p-1.5 rounded-md text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                          title="Retry"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
                       )}
-                    </button>
-                  </div>
+                    </div>
+                  </>
                 )}
                 <p className="text-xs text-slate-400 mt-1">
                   {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
             </div>
-          ))
+          );})
         )}
         {isStreaming && !streamingContent && (
           <div className="flex gap-4">

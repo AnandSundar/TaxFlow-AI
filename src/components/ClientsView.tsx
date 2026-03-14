@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Search, Plus, Filter, MoreVertical, X } from 'lucide-react';
+import { Users, Search, Plus, Filter, MoreVertical, X, Trash2 } from 'lucide-react';
 
 interface Client {
   id: number;
@@ -37,6 +37,28 @@ export default function ClientsView({ onSelectClient, onAddClient }: { onSelectC
       setShowModal(false);
       setNewClientName('');
       setNewClientEmail('');
+    }
+  };
+
+  const deleteClient = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this client? This will also delete all related documents, workflows, and chat messages.')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/clients/${id}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        setClients(clients.filter(client => client.id !== id));
+      } else {
+        const error = await response.json();
+        alert(`Failed to delete client: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      alert('Failed to delete client');
     }
   };
 
@@ -127,6 +149,13 @@ export default function ClientsView({ onSelectClient, onAddClient }: { onSelectC
                           className="px-3 py-1.5 text-indigo-600 hover:bg-indigo-50 rounded-md font-medium text-sm transition-colors"
                         >
                           View Case
+                        </button>
+                        <button 
+                          onClick={() => deleteClient(client.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                          title="Delete client"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                         <button className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
                           <MoreVertical className="w-4 h-4" />

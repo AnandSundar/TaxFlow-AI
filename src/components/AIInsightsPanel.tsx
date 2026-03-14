@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { 
   Lightbulb, 
   AlertTriangle, 
@@ -14,6 +15,7 @@ import {
 import type { AIInsight, ComplianceFlag, DeductionFound } from '../types/agent';
 
 interface AIInsightsPanelProps {
+  clientId?: number;
   insights?: AIInsight[];
   complianceFlags?: ComplianceFlag[];
   deductions?: DeductionFound[];
@@ -21,11 +23,124 @@ interface AIInsightsPanelProps {
 }
 
 export default function AIInsightsPanel({
-  insights = [],
-  complianceFlags = [],
-  deductions = [],
-  isLoading = false
+  clientId,
+  insights: initialInsights = [],
+  complianceFlags: initialComplianceFlags = [],
+  deductions: initialDeductions = [],
+  isLoading: initialLoading = false
 }: AIInsightsPanelProps) {
+  const [insights, setInsights] = useState<AIInsight[]>(initialInsights);
+  const [complianceFlags, setComplianceFlags] = useState<ComplianceFlag[]>(initialComplianceFlags);
+  const [deductions, setDeductions] = useState<DeductionFound[]>(initialDeductions);
+  const [isLoading, setIsLoading] = useState(initialLoading);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (clientId) {
+      fetchClientData();
+    }
+  }, [clientId]);
+
+  const fetchClientData = async () => {
+    if (!clientId) return;
+    
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/clients/${clientId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const workflow = data.workflow;
+        
+        if (workflow) {
+          // Parse deductions from workflow data
+          if (workflow.deductions) {
+            try {
+              const parsedDeductions = JSON.parse(workflow.deductions);
+              setDeductions(parsedDeductions);
+            } catch {
+              // If not JSON, create a single deduction entry
+              if (workflow.deductions && workflow.deductions.trim()) {
+                setDeductions([{
+                  id: '1',
+                  name: 'Detected Deductions',
+                  category: 'Tax Deductions',
+                  description: workflow.deductions,
+                  confidence: 0.8
+                }]);
+              }
+            }
+          }
+          
+          // Parse risks/compliance flags from workflow data
+          if (workflow.risks) {
+            try {
+              const parsedRisks = JSON.parse(workflow.risks);
+              setComplianceFlags(parsedRisks.map((risk: any, idx: number) => ({
+                id: String(idx + 1),
+                severity: risk.severity || 'medium',
+                title: risk.title || 'Risk Detected',
+                description: risk.description || '',
+                resolved: false
+              })));
+            } catch {
+              // If not JSON, create a single flag
+              if (workflow.risks && workflow.risks.trim()) {
+                setComplianceFlags([{
+                  id: '1',
+                  severity: 'medium',
+                  title: 'Compliance Alert',
+                  description: workflow.risks,
+                  resolved: false
+                }]);
+              }
+            }
+          }
+          
+          // Generate insights from workflow summary and notes
+          if (workflow.summary || workflow.notes) {
+            const generatedInsights: AIInsight[] = [];
+            
+            if (workflow.summary) {
+              generatedInsights.push({
+                id: 'summary-1',
+                type: 'info',
+                title: 'Tax Summary',
+                description: workflow.summary,
+                confidence: 0.95,
+                category: 'Summary',
+                createdAt: new Date().toISOString()
+              });
+            }
+            
+            if (workflow.notes) {
+              generatedInsights.push({
+                id: 'notes-1',
+                type: 'optimization',
+                title: 'AI Notes',
+                description: workflow.notes,
+                confidence: 0.85,
+                category: 'Notes',
+                createdAt: new Date().toISOString()
+              });
+            }
+            
+            setInsights(generatedInsights);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching client data:', error);
+      setError('Failed to load client data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  const handleRunAnalysis = async () => {
+    if (!clientId) return;
+    setError(null);
+    await fetchClientData();
+  };
+
   const getInsightIcon = (type: AIInsight['type']) => {
     switch (type) {
       case 'deduction':
@@ -73,6 +188,10 @@ export default function AIInsightsPanel({
     return `${Math.round(confidence * 100)}%`;
   };
 
+  const getConfidenceWidth = (confidence: number) => {
+    return Math.round(confidence * 100);
+  };
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 p-6">
@@ -116,6 +235,29 @@ export default function AIInsightsPanel({
       </div>
 
       <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+        {/* Error Display */}
+        {error && (
+          <div className="p-4 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="font-medium text-red-900 dark:text-red-200 mb-1">
+                  Error Loading Insights
+                </h4>
+                <p className="text-sm text-red-700 dark:text-red-300 mb-3">
+                  {error}
+                </p>
+                <button
+                  onClick={handleRunAnalysis}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                >
+                  Try Again
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Deductions Section */}
         {deductions.length > 0 && (
           <div className="space-y-3">
@@ -152,7 +294,7 @@ export default function AIInsightsPanel({
                       <div className="w-16 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-emerald-500 rounded-full"
-                          style={{ width: formatConfidence(deduction.confidence) }}
+                          style={{ width: `${getConfidenceWidth(deduction.confidence)}%` }}
                         />
                       </div>
                       <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -286,7 +428,10 @@ export default function AIInsightsPanel({
             <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
               Run a workflow to generate AI-powered insights, deductions, and compliance checks.
             </p>
-            <button className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
+            <button 
+              onClick={handleRunAnalysis}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+            >
               Run Analysis
               <ArrowRight className="w-4 h-4" />
             </button>

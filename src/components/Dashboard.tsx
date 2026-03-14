@@ -66,6 +66,18 @@ export default function Dashboard({ onSelectClient, onAddClient }: { onSelectCli
         setLoading(false);
       });
 
+    // Fetch real stats from API
+    fetch('/api/stats')
+      .then(res => res.json())
+      .then(data => {
+        setStats(prev => ({
+          ...prev,
+          totalDocuments: data.totalDocuments,
+          aiInsights: data.aiInsights,
+          activeWorkflows: data.activeWorkflows
+        }));
+      });
+
     // Simulated activity data
     setRecentActivity([
       { id: '1', action: 'AI analyzed W-2 document for John Smith', time: '2 min ago', type: 'ai' },

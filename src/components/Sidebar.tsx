@@ -11,17 +11,55 @@ import {
   ChevronDown,
   ChevronRight,
   Sparkles,
-  Activity
+  Activity,
+  User
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+interface Client {
+  id: number;
+  name: string;
+  email?: string;
+}
 
 interface SidebarProps {
   currentView: string;
   onNavigate: (view: string) => void;
+  selectedClientId?: number | null;
+  onClientSelect?: (clientId: number | null) => void;
 }
 
-export default function Sidebar({ currentView, onNavigate }: SidebarProps) {
+export default function Sidebar({ currentView, onNavigate, selectedClientId, onClientSelect }: SidebarProps) {
   const [aiExpanded, setAiExpanded] = useState(true);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+
+  const isAIFeature = ['ai-chat', 'ai-insights', 'workflows', 'executions', 'document-viewer'].includes(currentView);
+
+  useEffect(() => {
+    if (isAIFeature) {
+      fetch('/api/clients')
+        .then(res => res.json())
+        .then(data => setClients(data))
+        .catch(err => console.error('Failed to fetch clients:', err));
+    }
+  }, [currentView, isAIFeature]);
+
+  const selectedClient = clients.find(c => c.id === selectedClientId);
+
+  const handleAIFeatureClick = (viewId: string) => {
+    if (isAIFeature && !selectedClientId) {
+      setShowClientDropdown(true);
+    }
+    onNavigate(viewId);
+  };
+
+  const handleClientSelectFromDropdown = (clientId: number) => {
+    if (onClientSelect) {
+      onClientSelect(clientId);
+    }
+    setShowClientDropdown(false);
+  };
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -76,6 +114,62 @@ export default function Sidebar({ currentView, onNavigate }: SidebarProps) {
           })}
         </div>
 
+        {/* Client Selector for AI Features */}
+        {isAIFeature && (
+          <div className="mb-4 px-4">
+            <div className="relative">
+              <button
+                onClick={() => setShowClientDropdown(!showClientDropdown)}
+                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all ${
+                  selectedClientId 
+                    ? 'border-indigo-500 bg-indigo-500/10 text-white' 
+                    : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-slate-500'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  <span className="text-sm font-medium truncate">
+                    {selectedClient?.name || 'Select Client'}
+                  </span>
+                </div>
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              
+              {showClientDropdown && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                  {clients.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-slate-400">No clients found</div>
+                  ) : (
+                    clients.map(client => (
+                      <button
+                        key={client.id}
+                        onClick={() => handleClientSelectFromDropdown(client.id)}
+                        className="w-full px-4 py-2.5 text-left text-slate-200 hover:bg-slate-700 flex items-center gap-2"
+                      >
+                        <User className="w-4 h-4 text-slate-400" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{client.name}</div>
+                          {client.email && (
+                            <div className="text-xs text-slate-400 truncate">{client.email}</div>
+                          )}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+            {selectedClientId && (
+              <button
+                onClick={() => onClientSelect?.(null)}
+                className="mt-2 text-xs text-slate-400 hover:text-slate-300 flex items-center gap-1"
+              >
+                Clear selection
+              </button>
+            )}
+          </div>
+        )}
+
         {/* AI Section */}
         <div className="mb-6">
           <button
@@ -101,7 +195,7 @@ export default function Sidebar({ currentView, onNavigate }: SidebarProps) {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => onNavigate(item.id)}
+                    onClick={() => handleAIFeatureClick(item.id)}
                     className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg transition-all ${
                       isActive
                         ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25'

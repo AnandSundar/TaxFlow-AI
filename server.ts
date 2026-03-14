@@ -129,6 +129,45 @@ async function startServer() {
     res.json({ client, documents, workflow, chat_messages });
   });
 
+  app.delete('/api/clients/:id', (req, res) => {
+    const clientId = req.params.id;
+
+    // Check if client exists
+    const client = db.prepare('SELECT * FROM clients WHERE id = ?').get(clientId);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+
+    try {
+      // Delete related records in correct order (respecting foreign keys)
+      db.prepare('DELETE FROM chat_messages WHERE client_id = ?').run(clientId);
+      db.prepare('DELETE FROM documents WHERE client_id = ?').run(clientId);
+      db.prepare('DELETE FROM workflows WHERE client_id = ?').run(clientId);
+      db.prepare('DELETE FROM clients WHERE id = ?').run(clientId);
+
+      res.json({ success: true, message: 'Client deleted successfully' });
+    } catch (error: any) {
+      console.error('Error deleting client:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Dashboard stats endpoint
+  app.get('/api/stats', (req, res) => {
+    // Total documents count
+    const totalDocuments = db.prepare('SELECT COUNT(*) as count FROM documents').get() as { count: number };
+
+    // AI insights count (chat_messages where role = 'assistant')
+    const aiInsights = db.prepare("SELECT COUNT(*) as count FROM chat_messages WHERE role = 'assistant'").get() as { count: number };
+
+    // Active workflows count (status != 'Completed')
+    const activeWorkflows = db.prepare("SELECT COUNT(*) as count FROM workflows WHERE status != 'Completed'").get() as { count: number };
+
+    res.json({
+      totalDocuments: totalDocuments.count,
+      aiInsights: aiInsights.count,
+      activeWorkflows: activeWorkflows.count
+    });
+  });
+
   app.post('/api/clients/:id/documents', upload.array('files'), async (req, res) => {
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
