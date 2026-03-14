@@ -1,4 +1,4 @@
-# <img src="https://raw.githubusercontent.com/nicologhielmetti/taxflow-ai/main/public/logo.svg" width="50" alt="TaxFlow AI Logo"/> TaxFlow AI
+# TaxFlow AI
 
 <p align="center">
   <a href="https://github.com/AnandSundar/TaxFlow-AI">
