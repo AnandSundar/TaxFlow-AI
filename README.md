@@ -102,6 +102,24 @@ npm run dev
 
 The application will be available at `http://localhost:5173`
 
+
+![Banner](https://github.com/AnandSundar/TaxFlow-AI/blob/master/screenshots/Screenshot%202026-03-14%20144209.png)
+
+
+![Banner](https://github.com/AnandSundar/TaxFlow-AI/blob/master/screenshots/Screenshot%202026-03-14%20144726.png)
+
+
+![Banner](https://github.com/AnandSundar/TaxFlow-AI/blob/master/screenshots/Screenshot%202026-03-14%20144806.png)
+
+
+![Banner](https://github.com/AnandSundar/TaxFlow-AI/blob/master/screenshots/Screenshot%202026-03-14%20144850.png)
+
+
+![Banner](https://github.com/AnandSundar/TaxFlow-AI/blob/master/screenshots/Screenshot%202026-03-14%20144917.png)
+
+
+![Banner](https://github.com/AnandSundar/TaxFlow-AI/blob/master/screenshots/Screenshot%202026-03-14%20145041.png)
+
 ---
 
 ## ✨ Features
