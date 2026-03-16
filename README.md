@@ -1,4 +1,4 @@
-# <img src="https://raw.githubusercontent.com/nicologhielmetti/taxflow-ai/main/public/logo.svg" width="50" alt="TaxFlow AI Logo"/> TaxFlow AI
+# TaxFlow AI
 
 <p align="center">
   <a href="https://github.com/AnandSundar/TaxFlow-AI">
@@ -21,14 +21,7 @@
   </a>
 </p>
 
-<p align="center">
-  <h1>
-    <span style="background: linear-gradient(135deg, #FF6B6B 0%, #4ECDC4 50%, #45B7D1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
-      TaxFlow AI
-    </span>
-  </h1>
-  <em>Agentic AI workflows for modern tax professionals</em>
-</p>
+
 
 ---
 
@@ -47,9 +40,6 @@
 ---
 
 <div align="center">
-
-<!-- Animated Hero Section -->
-![TaxFlow AI Demo](https://via.placeholder.com/900x500/1a1a2e/FF6B6B?text=TaxFlow+AI+Demo)
 
 *Watch AI analyze tax documents, extract financial data, and generate compliance reports in seconds*
 
@@ -564,7 +554,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## 📬 Contact
 
-**Anand Sundar** - [GitHub](https://github.com/AnandSundar) - [LinkedIn](https://linkedin.com/in/anandsundar)
+**Anand Sundar** - [GitHub](https://github.com/AnandSundar) - [LinkedIn](https://linkedin.com/in/anandsundar96)
 
 ---
 
